@@ -1,20 +1,40 @@
-require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const app = express()
 const cors = require('cors')
+require('dotenv').config()
 
 const Person = require('./models/person')
 
 morgan.token('body', (req, res) => JSON.stringify(req.body))
 
 app.use(cors())
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 app.use(express.json())
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 app.use(express.static('build'))
 
 let persons = [
 ]
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+  
+    if (error.name === 'CastError') {
+      return response.status(400).send({ error: 'malformatted id' })
+    }
+  
+    next(error)
+}
+  
+
+app.get('/api/persons', (request, response) => {
+    Person.find({}).then(persons => {
+        response.json(persons)
+    }).catch(error => {
+        console.log('Error retrieving persons:', error)
+        response.status(500).json({ error: 'Error retrieving persons' })
+    })
+})
 
 app.get('/api/persons/:id', (request, response) => {
     const id = Number(request.params.id)
@@ -38,21 +58,14 @@ app.get('/info', (request, response) => {
     response.send(responseHtml)
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    persons = persons.filter(person => person.id !== id)
-  
-    response.status(204).end()
-})
-
-
-app.get('/api/persons', (request, response) => {
-    Person.find({}).then(persons => {
-        response.json(persons)
-    }).catch(error => {
-        console.log('Error retrieving persons:', error);
-        response.status(500).json({ error: 'Error retrieving persons' });
-      });
+app.delete('/api/persons/:id', (request, response, next) => {
+    const id = request.params.id;
+    console.log('Deleting person with id:', id);
+    Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+        response.status(204).end()
+    })
+    .catch(error => next)
 })
 
 app.post('/api/persons', (request, response) => {
@@ -72,18 +85,17 @@ app.post('/api/persons', (request, response) => {
         })
     }
 
-    const id = Math.floor(Math.random() * (1000000000) + 1)
-
     const person = new Person({
         name: body.name,
         number: body.number,
-        id: id
     })
 
     person.save().then(savedPerson => {
         response.json(person)
     })
 })
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
