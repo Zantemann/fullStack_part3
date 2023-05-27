@@ -1,7 +1,10 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const app = express()
 const cors = require('cors')
+
+const Person = require('./models/person')
 
 morgan.token('body', (req, res) => JSON.stringify(req.body))
 
@@ -10,43 +13,18 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :b
 app.use(express.json())
 app.use(express.static('build'))
 
-let persons = 
-[
-      { 
-        "name": "Arto Hellas", 
-        "number": "040-123456",
-        "id": 1
-      },
-      { 
-        "name": "Ada Lovelace", 
-        "number": "39-44-5323523",
-        "id": 2
-      },
-      { 
-        "name": "Dan Abramov", 
-        "number": "12-43-234345",
-        "id": 3
-      },
-      { 
-        "name": "Mary Poppendieck", 
-        "number": "39-23-6423122",
-        "id": 4
-      }
+let persons = [
 ]
-
-app.get('/api/persons', (request, response) => {
-    response.json(persons)
-})
 
 app.get('/api/persons/:id', (request, response) => {
     const id = Number(request.params.id)
-    const person = persons.find(person => person.id === id)
-    if (person) {
-        response.json(person)
-    } else {
-        response.status(404).end()
-    }
-    
+    Person.findById(request.params.id).then(person => {
+        if (person) {
+            response.json(person)
+        } else {
+            response.status(404).end()
+        }
+    }) 
 })
 
 app.get('/info', (request, response) => {
@@ -65,6 +43,16 @@ app.delete('/api/persons/:id', (request, response) => {
     persons = persons.filter(person => person.id !== id)
   
     response.status(204).end()
+})
+
+
+app.get('/api/persons', (request, response) => {
+    Person.find({}).then(persons => {
+        response.json(persons)
+    }).catch(error => {
+        console.log('Error retrieving persons:', error);
+        response.status(500).json({ error: 'Error retrieving persons' });
+      });
 })
 
 app.post('/api/persons', (request, response) => {
@@ -86,16 +74,18 @@ app.post('/api/persons', (request, response) => {
 
     const id = Math.floor(Math.random() * (1000000000) + 1)
 
-    const person = {
+    const person = new Person({
         name: body.name,
         number: body.number,
         id: id
-    }
-    persons = persons.concat(person)
-    response.json(person)
+    })
+
+    person.save().then(savedPerson => {
+        response.json(person)
+    })
 })
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 })
