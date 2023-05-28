@@ -83,14 +83,9 @@ app.post('/api/persons', (request, response, next) => {
 
     person.save()
         .then(savedPerson => {
-            response.json(person)
+            response.json(savedPerson)
         })
-        .catch(error => {
-        if (error.name === 'ValidationError') {
-                return response.status(400).json({ error: error.message })
-        }
-        next(error)
-    })
+        .catch(error => next(error))
 })
 
 app.put('/api/persons/:id', (request, response, next) => {
